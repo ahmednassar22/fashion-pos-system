@@ -1,0 +1,24 @@
+{
+  "name": "fashion-pos-system",
+  "version": "1.0.0",
+  "description": "نظام نقاط بيع متكامل لمحلات الملابس",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "npm run build:frontend && npm run build:backend"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.9.0",
+    "@types/react-redux": "^7.1.34",
+    "antd": "^5.27.3",
+    "axios": "^1.12.2",
+    "docker": "^1.0.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.9.1"
+  }
+}
