@@ -21,6 +21,7 @@ app.use(limiter);
 
 // Routes الأساسية
 app.use('/api/products', require('./routes/products'));
+app.use('/api/sales', require('./routes/sales'));
 // app.use('/api/auth', require('./routes/auth'));
 
 // Route للصحة العامة للتطبيق
