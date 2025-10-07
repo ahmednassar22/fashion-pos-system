@@ -1,4 +1,4 @@
-const { Product, ProductVariant, sequelize } = require('../models');
+const { Product, ProductVariant, sequelize, Op } = require('../models');
 
 const SaleController = {
   // معالجة عملية بيع جديدة
@@ -6,7 +6,7 @@ const SaleController = {
     const transaction = await sequelize.transaction();
     
     try {
-      const { items, paymentMethod, amountPaid, customerId } = req.body;
+      const { items, paymentMethod, amountPaid } = req.body;
       
       // التحقق من توفر المخزون
       for (const item of items) {
@@ -32,7 +32,7 @@ const SaleController = {
         }
       }
 
-      // هنا يمكنك إضافة عملية حفظ الفاتورة في قاعدة البيانات
+      // حفظ بيانات البيع
       const saleData = {
         totalAmount: items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         paymentMethod,

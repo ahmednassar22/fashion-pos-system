@@ -22,11 +22,21 @@ app.use(limiter);
 // Routes الأساسية
 app.use('/api/products', require('./routes/products'));
 app.use('/api/sales', require('./routes/sales'));
-// app.use('/api/auth', require('./routes/auth'));
 
 // Route للصحة العامة للتطبيق
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Fashion POS API is running' });
+});
+
+// Route للصحة العامة لقاعدة البيانات
+app.get('/health/db', async (req, res) => {
+  try {
+    const { sequelize } = require('./models');
+    await sequelize.authenticate();
+    res.status(200).json({ status: 'OK', message: 'Database connection is healthy' });
+  } catch (error) {
+    res.status(500).json({ status: 'ERROR', message: 'Database connection failed' });
+  }
 });
 
 // معالجة الأخطاء

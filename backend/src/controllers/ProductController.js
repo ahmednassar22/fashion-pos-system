@@ -1,7 +1,7 @@
-const { Product, ProductVariant } = require('../models');
+const { Product, ProductVariant, Op } = require('../models');
 
 const ProductController = {
-  
+  // الحصول على جميع المنتجات
   async getAllProducts(req, res) {
     try {
       const products = await Product.findAll({
@@ -17,7 +17,7 @@ const ProductController = {
     }
   },
 
-  
+  // الحصول على منتج بواسطة ID
   async getProductById(req, res) {
     try {
       const product = await Product.findByPk(req.params.id, {
@@ -37,7 +37,7 @@ const ProductController = {
     }
   },
 
-  //
+  // إنشاء منتج جديد
   async createProduct(req, res) {
     try {
       const product = await Product.create(req.body);
@@ -47,7 +47,7 @@ const ProductController = {
     }
   },
 
-  //
+  // تحديث منتج
   async updateProduct(req, res) {
     try {
       const product = await Product.findByPk(req.params.id);
@@ -63,7 +63,7 @@ const ProductController = {
     }
   },
 
-  //
+  // حذف منتج
   async deleteProduct(req, res) {
     try {
       const product = await Product.findByPk(req.params.id);
@@ -79,18 +79,19 @@ const ProductController = {
     }
   },
 
-  //
+  // البحث عن المنتجات
   async searchProducts(req, res) {
     try {
       const { query } = req.params;
+      
       const products = await Product.findAll({
         where: {
-          isActive: true,
           [Op.or]: [
-            { name: { [Op.iLike]: `%${query}%` } },
-            { description: { [Op.iLike]: `%${query}%` } },
-            { barcode: { [Op.iLike]: `%${query}%` } }
-          ]
+            { name: { [Op.like]: `%${query}%` } },
+            { barcode: { [Op.like]: `%${query}%` } },
+            { description: { [Op.like]: `%${query}%` } }
+          ],
+          isActive: true
         },
         include: [{
           model: ProductVariant,
@@ -105,4 +106,5 @@ const ProductController = {
   }
 };
 
+// تأكد من التصدير بشكل صحيح
 module.exports = ProductController;

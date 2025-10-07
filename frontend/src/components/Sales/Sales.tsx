@@ -11,7 +11,8 @@ import {
   Modal,
   Form,
   Select,
-  message
+  message,
+  Spin
 } from 'antd';
 import { 
   ShoppingCartOutlined, 
@@ -21,8 +22,10 @@ import {
   PlusOutlined,
   MinusOutlined,
   PrinterOutlined,
-  DollarOutlined
+  DollarOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
+import { productService, saleService } from '../../services/api';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -59,57 +62,55 @@ const Sales: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [processingSale, setProcessingSale] = useState(false);
   const [paymentForm] = Form.useForm();
 
-  // تحميل المنتجات (سيتم استبدال هذا بطلب API حقيقي)
+  // تحميل المنتجات من API
   useEffect(() => {
     loadProducts();
   }, []);
 
   const loadProducts = async () => {
+    setLoading(true);
     try {
-      // TODO: استبدال بطلب API حقيقي
-      const mockProducts: Product[] = [
-        {
-          id: 1,
-          name: 'تيشيرت قطني أساسي',
-          description: 'تيشيرت قطني عالي الجودة',
-          basePrice: 49.99,
-          category: 'ملابس',
-          barcode: 'TSHIRT001',
-          variants: [
-            { id: 1, size: 'S', color: 'أبيض', quantity: 25, priceModifier: 0, sku: 'TSHIRT001-S-WHITE' },
-            { id: 2, size: 'M', color: 'أبيض', quantity: 30, priceModifier: 0, sku: 'TSHIRT001-M-WHITE' },
-            { id: 3, size: 'L', color: 'أسود', quantity: 20, priceModifier: 5, sku: 'TSHIRT001-L-BLACK' }
-          ]
-        },
-        {
-          id: 2,
-          name: 'جينز ريلاكسد',
-          description: 'جينز مريح ومناسب للارتداء اليومي',
-          basePrice: 129.99,
-          category: 'ملابس',
-          barcode: 'JEANS001',
-          variants: [
-            { id: 4, size: '28', color: 'أزرق', quantity: 15, priceModifier: 0, sku: 'JEANS001-28-BLUE' },
-            { id: 5, size: '30', color: 'أزرق', quantity: 20, priceModifier: 0, sku: 'JEANS001-30-BLUE' }
-          ]
-        }
-      ];
-      setProducts(mockProducts);
+      const productsData = await productService.getAllProducts();
+      setProducts(productsData);
     } catch (error) {
       message.error('فشل في تحميل المنتجات');
+      console.error('Error loading products:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   // البحث عن المنتجات
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.barcode.includes(searchQuery)
-  );
+  const handleSearch = async (value: string) => {
+    if (!value.trim()) {
+      loadProducts();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const searchResults = await productService.searchProducts(value);
+      setProducts(searchResults);
+    } catch (error) {
+      message.error('فشل في البحث');
+      console.error('Error searching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // إضافة منتج إلى السلة
   const addToCart = (product: Product, variant?: ProductVariant) => {
+    // التحقق من توفر المخزون
+    if (variant && variant.quantity <= 0) {
+      message.warning('هذا المتغير غير متوفر في المخزون');
+      return;
+    }
+
     const finalPrice = product.basePrice + (variant?.priceModifier || 0);
     
     const existingItemIndex = cart.findIndex(item => 
@@ -118,9 +119,17 @@ const Sales: React.FC = () => {
     );
 
     if (existingItemIndex > -1) {
-      // زيادة الكمية إذا المنتج موجود
+      // التحقق من توفر الكمية الإضافية
+      const currentItem = cart[existingItemIndex];
+      const newQuantity = currentItem.quantity + 1;
+      
+      if (variant && newQuantity > variant.quantity) {
+        message.warning(`الكمية المتاحة: ${variant.quantity} فقط`);
+        return;
+      }
+
       const updatedCart = [...cart];
-      updatedCart[existingItemIndex].quantity += 1;
+      updatedCart[existingItemIndex].quantity = newQuantity;
       setCart(updatedCart);
     } else {
       // إضافة عنصر جديد
@@ -143,6 +152,12 @@ const Sales: React.FC = () => {
       return;
     }
 
+    const item = cart[index];
+    if (item.variant && newQuantity > item.variant.quantity) {
+      message.warning(`الكمية المتاحة: ${item.variant.quantity} فقط`);
+      return;
+    }
+
     const updatedCart = [...cart];
     updatedCart[index].quantity = newQuantity;
     setCart(updatedCart);
@@ -160,11 +175,38 @@ const Sales: React.FC = () => {
   };
 
   // معالجة الدفع
-  const handlePayment = (values: any) => {
-    console.log('قيم الدفع:', values);
-    message.success('تمت عملية البيع بنجاح!');
-    setIsPaymentModalVisible(false);
-    setCart([]); // تفريغ السلة بعد البيع
+  const handlePayment = async (values: any) => {
+    setProcessingSale(true);
+    try {
+      const saleData = {
+        items: cart.map(item => ({
+          productId: item.product.id,
+          variantId: item.variant?.id,
+          productName: item.product.name,
+          price: item.price,
+          quantity: item.quantity,
+          size: item.variant?.size,
+          color: item.variant?.color
+        })),
+        paymentMethod: values.paymentMethod,
+        amountPaid: values.amountPaid,
+        totalAmount: calculateTotal()
+      };
+
+      const result = await saleService.processSale(saleData);
+      
+      message.success(`تمت عملية البيع بنجاح! رقم الإيصال: ${result.receiptNumber}`);
+      setIsPaymentModalVisible(false);
+      setCart([]);
+      
+      // إعادة تحميل المنتجات لتحديث المخزون
+      loadProducts();
+      
+    } catch (error: any) {
+      message.error(error.response?.data?.error || 'فشل في معالجة البيع');
+    } finally {
+      setProcessingSale(false);
+    }
   };
 
   // أعمدة جدول السلة
@@ -244,59 +286,83 @@ const Sales: React.FC = () => {
             <Search
               placeholder="ابحث بالاسم أو الباركود..."
               prefix={<SearchOutlined />}
-              value={searchQuery}
+              onSearch={handleSearch}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ width: '100%' }}
+              enterButton
             />
             
-            <Button icon={<BarcodeOutlined />} type="dashed" block>
-              مسح باركود
-            </Button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button icon={<BarcodeOutlined />} type="dashed" style={{ flex: 1 }}>
+                مسح باركود
+              </Button>
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={loadProducts}
+                loading={loading}
+              >
+                تحديث
+              </Button>
+            </div>
 
             <Divider>المنتجات المتاحة</Divider>
 
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              {filteredProducts.map(product => (
-                <Card 
-                  key={product.id} 
-                  size="small" 
-                  style={{ marginBottom: '8px', cursor: 'pointer' }}
-                  onClick={() => addToCart(product)}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <strong>{product.name}</strong>
-                      <div style={{ fontSize: '12px', color: '#666' }}>
-                        {product.category} - ${product.basePrice.toFixed(2)}
+            <Spin spinning={loading}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {products.map(product => (
+                  <Card 
+                    key={product.id} 
+                    size="small" 
+                    style={{ marginBottom: '8px' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <div style={{ flex: 1 }}>
+                        <strong>{product.name}</strong>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          {product.category} - ${product.basePrice.toFixed(2)}
+                        </div>
+                        {product.description && (
+                          <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+                            {product.description}
+                          </div>
+                        )}
                       </div>
+                      <Button 
+                        type="primary" 
+                        size="small"
+                        onClick={() => addToCart(product)}
+                      >
+                        إضافة
+                      </Button>
                     </div>
-                    <Button type="primary" size="small">
-                      إضافة
-                    </Button>
-                  </div>
-                  
-                  {/* عرض المتغيرات إذا كانت موجودة */}
-                  {product.variants && product.variants.length > 0 && (
-                    <div style={{ marginTop: '8px' }}>
-                      <Space wrap>
-                        {product.variants.map(variant => (
-                          <Button 
-                            key={variant.id}
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCart(product, variant);
-                            }}
-                          >
-                            {variant.size} - {variant.color}
-                          </Button>
-                        ))}
-                      </Space>
-                    </div>
-                  )}
-                </Card>
-              ))}
-            </div>
+                    
+                    {/* عرض المتغيرات إذا كانت موجودة */}
+                    {product.variants && product.variants.length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ fontSize: '12px', marginBottom: '4px', color: '#666' }}>
+                          المتغيرات المتاحة:
+                        </div>
+                        <Space wrap>
+                          {product.variants.map(variant => (
+                            <Button 
+                              key={variant.id}
+                              size="small"
+                              type={variant.quantity > 0 ? "default" : "dashed"}
+                              danger={variant.quantity <= 0}
+                              onClick={() => addToCart(product, variant)}
+                              title={`المخزون: ${variant.quantity}`}
+                            >
+                              {variant.size} - {variant.color}
+                              {variant.quantity <= 0 && ' (غير متوفر)'}
+                            </Button>
+                          ))}
+                        </Space>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </Spin>
           </Space>
         </Card>
 
@@ -310,6 +376,7 @@ const Sales: React.FC = () => {
             pagination={false}
             size="small"
             scroll={{ y: 300 }}
+            locale={{ emptyText: 'السلة فارغة' }}
           />
           
           <Divider />
@@ -347,11 +414,15 @@ const Sales: React.FC = () => {
         onCancel={() => setIsPaymentModalVisible(false)}
         footer={null}
         width={400}
+        confirmLoading={processingSale}
       >
         <Form
           form={paymentForm}
           layout="vertical"
           onFinish={handlePayment}
+          initialValues={{
+            amountPaid: calculateTotal()
+          }}
         >
           <Form.Item label="المبلغ المستحق" style={{ marginBottom: 8 }}>
             <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
@@ -380,14 +451,20 @@ const Sales: React.FC = () => {
             <InputNumber 
               style={{ width: '100%' }}
               min={calculateTotal()}
-              defaultValue={calculateTotal()}
               formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
             />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
-            <Button type="primary" htmlType="submit" block size="large">
-              تأكيد العملية
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              block 
+              size="large"
+              loading={processingSale}
+            >
+              {processingSale ? 'جاري المعالجة...' : 'تأكيد العملية'}
             </Button>
           </Form.Item>
         </Form>

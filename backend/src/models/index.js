@@ -20,5 +20,6 @@ ProductVariant.belongsTo(Product, {
 module.exports = {
   sequelize,
   Product,
-  ProductVariant
+  ProductVariant,
+  Op: Sequelize.Op // إضافة Op للاستعلامات
 };
