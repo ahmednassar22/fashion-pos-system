@@ -1,4 +1,4 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize, Op } = require('sequelize');
 const sequelize = require('../config/database');
 
 // استيراد النماذج
@@ -21,5 +21,5 @@ module.exports = {
   sequelize,
   Product,
   ProductVariant,
-  Op: Sequelize.Op // إضافة Op للاستعلامات
+  Op // تصدير Op للاستعلامات
 };

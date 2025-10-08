@@ -28,15 +28,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Fashion POS API is running' });
 });
 
-// Route للصحة العامة لقاعدة البيانات
-app.get('/health/db', async (req, res) => {
-  try {
-    const { sequelize } = require('./models');
-    await sequelize.authenticate();
-    res.status(200).json({ status: 'OK', message: 'Database connection is healthy' });
-  } catch (error) {
-    res.status(500).json({ status: 'ERROR', message: 'Database connection failed' });
-  }
+// Route الأساسي
+app.get('/', (req, res) => {
+  res.json({ message: 'Fashion POS System API' });
 });
 
 // معالجة الأخطاء
