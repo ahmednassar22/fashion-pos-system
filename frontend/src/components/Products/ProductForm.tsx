@@ -15,8 +15,7 @@ import {
 } from 'antd';
 import {
   PlusOutlined,
-  DeleteOutlined,
-  EditOutlined
+  DeleteOutlined
 } from '@ant-design/icons';
 
 const { Option } = Select;
@@ -48,7 +47,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -75,7 +73,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
       key: Date.now()
     };
     setVariants([...variants, newVariant]);
-    setEditingVariant(newVariant);
   };
 
   const updateVariant = (index: number, field: string, value: any) => {
@@ -90,9 +87,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const removeVariant = (index: number) => {
     const updatedVariants = variants.filter((_, i) => i !== index);
     setVariants(updatedVariants);
-    if (editingVariant && editingVariant.key === variants[index].key) {
-      setEditingVariant(null);
-    }
   };
 
   const generateSku = (baseSku: string, size: string, color: string) => {

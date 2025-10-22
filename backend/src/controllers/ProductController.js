@@ -20,55 +20,6 @@ const ProductController = {
     }
   },
 
-  // البحث عن المنتجات
-  async searchProducts(req, res) {
-    try {
-      const { query } = req.params;
-      console.log('Searching products for:', query);
-      
-      const products = await Product.findAll({
-        where: {
-          [Op.or]: [
-            { name: { [Op.like]: `%${query}%` } },
-            { barcode: { [Op.like]: `%${query}%` } },
-            { description: { [Op.like]: `%${query}%` } }
-          ],
-          isActive: true
-        },
-        include: [{
-          model: ProductVariant,
-          as: 'variants'
-        }]
-      });
-      
-      console.log(`Search found ${products.length} products`);
-      res.json(products);
-    } catch (error) {
-      console.error('Search error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  // الحصول على منتج بواسطة ID
-  async getProductById(req, res) {
-    try {
-      const product = await Product.findByPk(req.params.id, {
-        include: [{
-          model: ProductVariant,
-          as: 'variants'
-        }]
-      });
-      
-      if (!product) {
-        return res.status(404).json({ error: 'Product not found' });
-      }
-      
-      res.json(product);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
   // إنشاء منتج جديد مع متغيراته
   async createProduct(req, res) {
     const transaction = await sequelize.transaction();
@@ -160,6 +111,55 @@ const ProductController = {
     }
   },
 
+  // البحث عن المنتجات
+  async searchProducts(req, res) {
+    try {
+      const { query } = req.params;
+      console.log('Searching products for:', query);
+      
+      const products = await Product.findAll({
+        where: {
+          [Op.or]: [
+            { name: { [Op.like]: `%${query}%` } },
+            { barcode: { [Op.like]: `%${query}%` } },
+            { description: { [Op.like]: `%${query}%` } }
+          ],
+          isActive: true
+        },
+        include: [{
+          model: ProductVariant,
+          as: 'variants'
+        }]
+      });
+      
+      console.log(`Search found ${products.length} products`);
+      res.json(products);
+    } catch (error) {
+      console.error('Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // الحصول على منتج بواسطة ID
+  async getProductById(req, res) {
+    try {
+      const product = await Product.findByPk(req.params.id, {
+        include: [{
+          model: ProductVariant,
+          as: 'variants'
+        }]
+      });
+      
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   // حذف منتج
   async deleteProduct(req, res) {
     try {
@@ -177,5 +177,4 @@ const ProductController = {
   }
 };
 
-// تأكد من أن التصدير صحيح
 module.exports = ProductController;

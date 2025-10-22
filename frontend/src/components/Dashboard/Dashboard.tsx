@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Row, Col, Statistic } from 'antd';
-import { ShoppingCartOutlined, AppstoreOutlined, DollarOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, AppstoreOutlined, DollarOutlined, UserOutlined } from '@ant-design/icons';
 
 const Dashboard: React.FC = () => {
   return (
@@ -8,7 +8,7 @@ const Dashboard: React.FC = () => {
       <h1>لوحة تحكم نظام نقاط البيع</h1>
       
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}>
+        <Col span={6}>
           <Card>
             <Statistic
               title="إجمالي المبيعات اليوم"
@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col span={6}>
           <Card>
             <Statistic
               title="عدد المنتجات"
@@ -27,12 +27,21 @@ const Dashboard: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col span={6}>
           <Card>
             <Statistic
               title="المبيعات النشطة"
               value={5}
               prefix={<ShoppingCartOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="عدد العملاء"
+              value={45}
+              prefix={<UserOutlined />}
             />
           </Card>
         </Col>

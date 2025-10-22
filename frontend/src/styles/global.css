@@ -1,0 +1,86 @@
+/* Global RTL Styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+  direction: rtl;
+  text-align: right;
+}
+
+.ant-layout {
+  direction: rtl;
+}
+
+.ant-menu {
+  text-align: right;
+}
+
+.ant-table {
+  direction: rtl;
+}
+
+.ant-table-thead > tr > th {
+  text-align: right;
+}
+
+.ant-form-item-label {
+  text-align: right;
+}
+
+.ant-card-head-title {
+  text-align: right;
+}
+
+.ant-btn {
+  font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+}
+
+/* Fix for RTL inputs */
+.ant-input {
+  text-align: right;
+  direction: rtl;
+}
+
+.ant-input-number {
+  direction: rtl;
+}
+
+.ant-input-number-input {
+  text-align: right;
+  direction: rtl;
+}
+
+.ant-select-selection-item {
+  text-align: right;
+  direction: rtl;
+}
+
+.ant-modal-title {
+  text-align: right;
+}
+
+.ant-modal-footer {
+  text-align: left;
+}
+
+.ant-table-pagination {
+  direction: ltr;
+}
+
+/* Ensure proper text rendering */
+.ant-typography {
+  direction: rtl;
+  text-align: right;
+}
+
+.ant-card {
+  direction: rtl;
+}
+
+.ant-space {
+  direction: rtl;
+}

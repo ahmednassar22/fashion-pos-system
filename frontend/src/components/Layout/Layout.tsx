@@ -5,6 +5,7 @@ import {
   DashboardOutlined,
   ShoppingOutlined,
   AppstoreOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
@@ -48,6 +49,11 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
               key: '/sales',
               icon: <ShoppingOutlined />,
               label: <Link to="/sales">نقطة البيع</Link>,
+            },
+            {
+              key: '/customers',
+              icon: <UserOutlined />,
+              label: <Link to="/customers">إدارة العملاء</Link>,
             },
           ]}
         />

@@ -1,21 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Card, message, Tag, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ShoppingOutlined } from '@ant-design/icons';
-import { productService } from '../../services/api';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { productService, Product } from '../../services/api';
 import ProductForm from './ProductForm';
-
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  basePrice: number;
-  category: string;
-  season: string;
-  gender: string;
-  barcode: string;
-  isActive: boolean;
-  variants?: ProductVariant[];
-}
 
 interface ProductVariant {
   id: number;
@@ -60,7 +47,7 @@ const Products: React.FC = () => {
       
       setFormVisible(false);
       setEditingProduct(null);
-      loadProducts(); // إعادة تحميل المنتجات
+      loadProducts();
     } catch (error: any) {
       message.error(error.response?.data?.error || 'فشل في حفظ المنتج');
     }

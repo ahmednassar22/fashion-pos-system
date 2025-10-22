@@ -1,16 +1,20 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// استخدام SQLite للتطوير (لا يحتاج إلى خادم منفصل)
+// استخدام SQLite للتطوير
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: './database.sqlite', // سيتم إنشاء ملف في مجلد backend
+  storage: process.env.DB_STORAGE || './database.sqlite',
   logging: console.log,
   pool: {
     max: 5,
     min: 0,
     acquire: 30000,
     idle: 10000
+  },
+  define: {
+    timestamps: true,
+    freezeTableName: true
   }
 });
 
@@ -18,9 +22,9 @@ const sequelize = new Sequelize({
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('SQLite connection has been established successfully.');
+    console.log('✅ SQLite connection has been established successfully.');
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error('❌ Unable to connect to the database:', error);
   }
 };
 

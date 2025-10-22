@@ -22,6 +22,7 @@ app.use(limiter);
 // Routes الأساسية
 app.use('/api/products', require('./routes/products'));
 app.use('/api/sales', require('./routes/sales'));
+app.use('/api/customers', require('./routes/customers'));
 
 // Route للصحة العامة للتطبيق
 app.get('/health', (req, res) => {

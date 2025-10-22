@@ -25,30 +25,11 @@ import {
   DollarOutlined,
   ReloadOutlined
 } from '@ant-design/icons';
-import { productService, saleService } from '../../services/api';
+import { productService, saleService, Product, ProductVariant } from '../../services/api';
 
 const { Title } = Typography;
 const { Search } = Input;
 const { Option } = Select;
-
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  basePrice: number;
-  category: string;
-  barcode: string;
-  variants?: ProductVariant[];
-}
-
-interface ProductVariant {
-  id: number;
-  size: string;
-  color: string;
-  quantity: number;
-  priceModifier: number;
-  sku: string;
-}
 
 interface CartItem {
   product: Product;
@@ -310,56 +291,57 @@ const Sales: React.FC = () => {
             <Spin spinning={loading}>
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {products.map(product => (
-                  <Card 
-                    key={product.id} 
-                    size="small" 
-                    style={{ marginBottom: '8px' }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div style={{ flex: 1 }}>
-                        <strong>{product.name}</strong>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                          {product.category} - ${product.basePrice.toFixed(2)}
-                        </div>
-                        {product.description && (
-                          <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-                            {product.description}
-                          </div>
-                        )}
-                      </div>
-                      <Button 
-                        type="primary" 
-                        size="small"
-                        onClick={() => addToCart(product)}
-                      >
-                        إضافة
-                      </Button>
-                    </div>
-                    
-                    {/* عرض المتغيرات إذا كانت موجودة */}
-                    {product.variants && product.variants.length > 0 && (
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ fontSize: '12px', marginBottom: '4px', color: '#666' }}>
-                          المتغيرات المتاحة:
-                        </div>
-                        <Space wrap>
-                          {product.variants.map(variant => (
-                            <Button 
-                              key={variant.id}
-                              size="small"
-                              type={variant.quantity > 0 ? "default" : "dashed"}
-                              danger={variant.quantity <= 0}
-                              onClick={() => addToCart(product, variant)}
-                              title={`المخزون: ${variant.quantity}`}
-                            >
-                              {variant.size} - {variant.color}
-                              {variant.quantity <= 0 && ' (غير متوفر)'}
-                            </Button>
-                          ))}
-                        </Space>
-                      </div>
-                    )}
-                  </Card>
+                  // في جزء عرض المنتجات، تحديث النصوص:
+<Card 
+  key={product.id} 
+  size="small" 
+  style={{ marginBottom: '8px' }}
+>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+    <div style={{ flex: 1 }}>
+      <strong>{product.name}</strong>
+      <div style={{ fontSize: '12px', color: '#666' }}>
+        {product.category} - ${product.basePrice.toFixed(2)}
+      </div>
+      {product.description && (
+        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+          {product.description}
+        </div>
+      )}
+    </div>
+    <Button 
+      type="primary" 
+      size="small"
+      onClick={() => addToCart(product)}
+    >
+      إضافة للسلة
+    </Button>
+  </div>
+  
+  {/* عرض المتغيرات إذا كانت موجودة */}
+  {product.variants && product.variants.length > 0 && (
+    <div style={{ marginTop: '8px' }}>
+      <div style={{ fontSize: '12px', marginBottom: '4px', color: '#666' }}>
+        المتغيرات المتاحة:
+      </div>
+      <Space wrap>
+        {product.variants.map(variant => (
+          <Button 
+            key={variant.id}
+            size="small"
+            type={variant.quantity > 0 ? "default" : "dashed"}
+            danger={variant.quantity <= 0}
+            onClick={() => addToCart(product, variant)}
+            title={`المخزون: ${variant.quantity}`}
+          >
+            {variant.size} - {variant.color}
+            {variant.quantity <= 0 && ' (غير متوفر)'}
+          </Button>
+        ))}
+      </Space>
+    </div>
+  )}
+</Card>
                 ))}
               </div>
             </Spin>
