@@ -12,7 +12,9 @@ import {
   Form,
   Select,
   message,
-  Spin
+  Spin,
+  Tag,
+  Alert
 } from 'antd';
 import { 
   ShoppingCartOutlined, 
@@ -23,9 +25,11 @@ import {
   MinusOutlined,
   PrinterOutlined,
   DollarOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  UserOutlined,
+  UserAddOutlined
 } from '@ant-design/icons';
-import { productService, saleService, Product, ProductVariant } from '../../services/api';
+import { productService, saleService, customerService, Customer, Product } from '../../services/api';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -33,7 +37,7 @@ const { Option } = Select;
 
 interface CartItem {
   product: Product;
-  variant?: ProductVariant;
+  variant?: any;
   quantity: number;
   price: number;
 }
@@ -41,15 +45,21 @@ interface CartItem {
 const Sales: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isCustomerModalVisible, setIsCustomerModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [customerLoading, setCustomerLoading] = useState(false);
   const [processingSale, setProcessingSale] = useState(false);
   const [paymentForm] = Form.useForm();
+  const [customerForm] = Form.useForm();
 
-  // تحميل المنتجات من API
   useEffect(() => {
     loadProducts();
+    loadCustomers();
   }, []);
 
   const loadProducts = async () => {
@@ -59,34 +69,52 @@ const Sales: React.FC = () => {
       setProducts(productsData);
     } catch (error) {
       message.error('فشل في تحميل المنتجات');
-      console.error('Error loading products:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // البحث عن المنتجات
-  const handleSearch = async (value: string) => {
+  const loadCustomers = async () => {
+    try {
+      const customersData = await customerService.getAllCustomers();
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    }
+  };
+
+  const handleCustomerSearch = async (value: string) => {
+    setCustomerSearchQuery(value);
     if (!value.trim()) {
-      loadProducts();
+      loadCustomers();
       return;
     }
 
-    setLoading(true);
+    setCustomerLoading(true);
     try {
-      const searchResults = await productService.searchProducts(value);
-      setProducts(searchResults);
+      const searchResults = await customerService.searchCustomers(value);
+      setCustomers(searchResults);
     } catch (error) {
-      message.error('فشل في البحث');
-      console.error('Error searching products:', error);
+      message.error('فشل في البحث عن العملاء');
     } finally {
-      setLoading(false);
+      setCustomerLoading(false);
     }
   };
 
-  // إضافة منتج إلى السلة
-  const addToCart = (product: Product, variant?: ProductVariant) => {
-    // التحقق من توفر المخزون
+  const handleAddCustomer = async (values: any) => {
+    try {
+      const newCustomer = await customerService.createCustomer(values);
+      message.success('تم إضافة العميل بنجاح');
+      setIsCustomerModalVisible(false);
+      customerForm.resetFields();
+      setSelectedCustomer(newCustomer);
+      loadCustomers();
+    } catch (error: any) {
+      message.error(error.response?.data?.error || 'فشل في إضافة العميل');
+    }
+  };
+
+  const addToCart = (product: Product, variant?: any) => {
     if (variant && variant.quantity <= 0) {
       message.warning('هذا المتغير غير متوفر في المخزون');
       return;
@@ -100,7 +128,6 @@ const Sales: React.FC = () => {
     );
 
     if (existingItemIndex > -1) {
-      // التحقق من توفر الكمية الإضافية
       const currentItem = cart[existingItemIndex];
       const newQuantity = currentItem.quantity + 1;
       
@@ -113,7 +140,6 @@ const Sales: React.FC = () => {
       updatedCart[existingItemIndex].quantity = newQuantity;
       setCart(updatedCart);
     } else {
-      // إضافة عنصر جديد
       const newItem: CartItem = {
         product,
         variant,
@@ -126,7 +152,6 @@ const Sales: React.FC = () => {
     message.success('تمت إضافة المنتج إلى السلة');
   };
 
-  // تحديث كمية العنصر في السلة
   const updateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) {
       removeFromCart(index);
@@ -144,18 +169,35 @@ const Sales: React.FC = () => {
     setCart(updatedCart);
   };
 
-  // إزالة عنصر من السلة
   const removeFromCart = (index: number) => {
     const updatedCart = cart.filter((_, i) => i !== index);
     setCart(updatedCart);
   };
 
-  // حساب الإجمالي
   const calculateTotal = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  // معالجة الدفع
+  const calculateDiscount = () => {
+    if (!selectedCustomer) return 0;
+    
+    // خصم 5% للعملاء المميزين (200+ نقطة)
+    if (selectedCustomer.loyaltyPoints >= 200) {
+      return calculateTotal() * 0.05;
+    }
+    
+    // خصم 2% للعملاء النشطين (100+ نقطة)
+    if (selectedCustomer.loyaltyPoints >= 100) {
+      return calculateTotal() * 0.02;
+    }
+    
+    return 0;
+  };
+
+  const calculateFinalTotal = () => {
+    return calculateTotal() - calculateDiscount();
+  };
+
   const handlePayment = async (values: any) => {
     setProcessingSale(true);
     try {
@@ -171,17 +213,34 @@ const Sales: React.FC = () => {
         })),
         paymentMethod: values.paymentMethod,
         amountPaid: values.amountPaid,
-        totalAmount: calculateTotal()
+        totalAmount: calculateFinalTotal(),
+        customerId: selectedCustomer?.id || null
       };
 
       const result = await saleService.processSale(saleData);
       
-      message.success(`تمت عملية البيع بنجاح! رقم الإيصال: ${result.receiptNumber}`);
+      // تحديث نقاط الولاء إذا كان هناك عميل
+      if (selectedCustomer) {
+        const pointsEarned = Math.floor(calculateFinalTotal() / 10); // نقطة لكل 10 دولار
+        await customerService.addPoints(selectedCustomer.id, {
+          points: pointsEarned,
+          reason: `شراء بقيمة $${calculateFinalTotal().toFixed(2)}`
+        });
+      }
+      
+      let successMessage = `تمت عملية البيع بنجاح! رقم الإيصال: ${result.receiptNumber}`;
+      if (selectedCustomer) {
+        const pointsEarned = Math.floor(calculateFinalTotal() / 10);
+        successMessage += ` - تم إضافة ${pointsEarned} نقطة للعميل`;
+      }
+      
+      message.success(successMessage);
       setIsPaymentModalVisible(false);
       setCart([]);
+      setSelectedCustomer(null);
       
-      // إعادة تحميل المنتجات لتحديث المخزون
       loadProducts();
+      loadCustomers();
       
     } catch (error: any) {
       message.error(error.response?.data?.error || 'فشل في معالجة البيع');
@@ -190,7 +249,6 @@ const Sales: React.FC = () => {
     }
   };
 
-  // أعمدة جدول السلة
   const cartColumns = [
     {
       title: 'المنتج',
@@ -262,131 +320,222 @@ const Sales: React.FC = () => {
       
       <div style={{ display: 'flex', gap: '24px', height: '70vh' }}>
         {/* العمود الأيسر: البحث وعرض المنتجات */}
-        <Card style={{ flex: 1 }}>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Search
-              placeholder="ابحث بالاسم أو الباركود..."
-              prefix={<SearchOutlined />}
-              onSearch={handleSearch}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%' }}
-              enterButton
-            />
-            
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Button icon={<BarcodeOutlined />} type="dashed" style={{ flex: 1 }}>
-                مسح باركود
-              </Button>
-              <Button 
-                icon={<ReloadOutlined />} 
-                onClick={loadProducts}
-                loading={loading}
-              >
-                تحديث
-              </Button>
-            </div>
+        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Card>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Search
+                placeholder="ابحث بالاسم أو الباركود..."
+                prefix={<SearchOutlined />}
+                onSearch={(value) => {
+                  if (!value.trim()) {
+                    loadProducts();
+                    return;
+                  }
+                  setLoading(true);
+                  productService.searchProducts(value)
+                    .then(setProducts)
+                    .catch(() => message.error('فشل في البحث'))
+                    .finally(() => setLoading(false));
+                }}
+                style={{ width: '100%' }}
+                enterButton
+              />
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button icon={<BarcodeOutlined />} type="dashed" style={{ flex: 1 }}>
+                  مسح باركود
+                </Button>
+                <Button 
+                  icon={<ReloadOutlined />} 
+                  onClick={loadProducts}
+                  loading={loading}
+                >
+                  تحديث
+                </Button>
+              </div>
+            </Space>
+          </Card>
 
-            <Divider>المنتجات المتاحة</Divider>
-
+          <Card title="المنتجات المتاحة" style={{ flex: 1, overflow: 'auto' }}>
             <Spin spinning={loading}>
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {products.map(product => (
-                  // في جزء عرض المنتجات، تحديث النصوص:
-<Card 
-  key={product.id} 
-  size="small" 
-  style={{ marginBottom: '8px' }}
->
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-    <div style={{ flex: 1 }}>
-      <strong>{product.name}</strong>
-      <div style={{ fontSize: '12px', color: '#666' }}>
-        {product.category} - ${product.basePrice.toFixed(2)}
-      </div>
-      {product.description && (
-        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-          {product.description}
-        </div>
-      )}
-    </div>
-    <Button 
-      type="primary" 
-      size="small"
-      onClick={() => addToCart(product)}
-    >
-      إضافة للسلة
-    </Button>
-  </div>
-  
-  {/* عرض المتغيرات إذا كانت موجودة */}
-  {product.variants && product.variants.length > 0 && (
-    <div style={{ marginTop: '8px' }}>
-      <div style={{ fontSize: '12px', marginBottom: '4px', color: '#666' }}>
-        المتغيرات المتاحة:
-      </div>
-      <Space wrap>
-        {product.variants.map(variant => (
-          <Button 
-            key={variant.id}
-            size="small"
-            type={variant.quantity > 0 ? "default" : "dashed"}
-            danger={variant.quantity <= 0}
-            onClick={() => addToCart(product, variant)}
-            title={`المخزون: ${variant.quantity}`}
-          >
-            {variant.size} - {variant.color}
-            {variant.quantity <= 0 && ' (غير متوفر)'}
-          </Button>
-        ))}
-      </Space>
-    </div>
-  )}
-</Card>
+                  <Card 
+                    key={product.id} 
+                    size="small" 
+                    style={{ marginBottom: '8px' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <div style={{ flex: 1 }}>
+                        <strong>{product.name}</strong>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          {product.category} - ${product.basePrice.toFixed(2)}
+                        </div>
+                        {product.description && (
+                          <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+                            {product.description}
+                          </div>
+                        )}
+                      </div>
+                      <Button 
+                        type="primary" 
+                        size="small"
+                        onClick={() => addToCart(product)}
+                      >
+                        إضافة
+                      </Button>
+                    </div>
+                    
+                    {product.variants && product.variants.length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ fontSize: '12px', marginBottom: '4px', color: '#666' }}>
+                          المتغيرات المتاحة:
+                        </div>
+                        <Space wrap>
+                          {product.variants.map(variant => (
+                            <Button 
+                              key={variant.id}
+                              size="small"
+                              type={variant.quantity > 0 ? "default" : "dashed"}
+                              danger={variant.quantity <= 0}
+                              onClick={() => addToCart(product, variant)}
+                              title={`المخزون: ${variant.quantity}`}
+                            >
+                              {variant.size} - {variant.color}
+                              {variant.quantity <= 0 && ' (غير متوفر)'}
+                            </Button>
+                          ))}
+                        </Space>
+                      </div>
+                    )}
+                  </Card>
                 ))}
               </div>
             </Spin>
-          </Space>
-        </Card>
+          </Card>
+        </div>
 
-        {/* العمود الأيمن: سلة التسوق */}
-        <Card style={{ flex: 1 }}>
-          <Title level={4}>سلة التسوق</Title>
-          
-          <Table 
-            columns={cartColumns}
-            dataSource={cart.map((item, index) => ({ ...item, key: index }))}
-            pagination={false}
-            size="small"
-            scroll={{ y: 300 }}
-            locale={{ emptyText: 'السلة فارغة' }}
-          />
-          
-          <Divider />
-          
-          <div style={{ textAlign: 'center' }}>
-            <Title level={3}>الإجمالي: ${calculateTotal().toFixed(2)}</Title>
-            
-            <Space>
-              <Button 
-                type="primary" 
-                size="large"
-                icon={<DollarOutlined />}
-                disabled={cart.length === 0}
-                onClick={() => setIsPaymentModalVisible(true)}
-              >
-                معالجة الدفع
-              </Button>
+        {/* العمود الأيمن: العملاء وسلة التسوق */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Card title="إدارة العملاء">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Search
+                placeholder="ابحث عن عميل..."
+                prefix={<SearchOutlined />}
+                onSearch={handleCustomerSearch}
+                onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                loading={customerLoading}
+                style={{ width: '100%' }}
+              />
               
               <Button 
-                size="large"
-                icon={<PrinterOutlined />}
-                disabled={cart.length === 0}
+                icon={<UserAddOutlined />} 
+                onClick={() => setIsCustomerModalVisible(true)}
+                block
               >
-                طباعة الفاتورة
+                إضافة عميل جديد
               </Button>
+
+              {selectedCustomer && (
+                <Alert
+                  message={
+                    <div>
+                      <strong>العميل المحدد:</strong> {selectedCustomer.name}
+                      <br />
+                      <span>نقاط الولاء: {selectedCustomer.loyaltyPoints}</span>
+                      {selectedCustomer.loyaltyPoints >= 200 && (
+                        <Tag color="gold" style={{ marginRight: '8px' }}>مميز (خصم 5%)</Tag>
+                      )}
+                      {selectedCustomer.loyaltyPoints >= 100 && selectedCustomer.loyaltyPoints < 200 && (
+                        <Tag color="blue" style={{ marginRight: '8px' }}>نشط (خصم 2%)</Tag>
+                      )}
+                    </div>
+                  }
+                  type="success"
+                  action={
+                    <Button 
+                      size="small" 
+                      onClick={() => setSelectedCustomer(null)}
+                    >
+                      إلغاء
+                    </Button>
+                  }
+                />
+              )}
+
+              <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                {customers.map(customer => (
+                  <Card 
+                    key={customer.id}
+                    size="small" 
+                    style={{ 
+                      marginBottom: '4px',
+                      cursor: 'pointer',
+                      border: selectedCustomer?.id === customer.id ? '2px solid #1890ff' : '1px solid #d9d9d9'
+                    }}
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <div>
+                      <strong>{customer.name}</strong>
+                      <div style={{ fontSize: '12px', color: '#666' }}>
+                        {customer.phone} - {customer.loyaltyPoints} نقطة
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </Space>
-          </div>
-        </Card>
+          </Card>
+
+          <Card title="سلة التسوق" style={{ flex: 1 }}>
+            <Table 
+              columns={cartColumns}
+              dataSource={cart.map((item, index) => ({ ...item, key: index }))}
+              pagination={false}
+              size="small"
+              scroll={{ y: 200 }}
+              locale={{ emptyText: 'السلة فارغة' }}
+            />
+            
+            <Divider />
+            
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <strong>الإجمالي: ${calculateTotal().toFixed(2)}</strong>
+              </div>
+              
+              {selectedCustomer && calculateDiscount() > 0 && (
+                <div style={{ marginBottom: '8px', color: '#52c41a' }}>
+                  <strong>الخصم: ${calculateDiscount().toFixed(2)}</strong>
+                </div>
+              )}
+              
+              <Title level={3} style={{ margin: '8px 0', color: '#1890ff' }}>
+                المبلغ النهائي: ${calculateFinalTotal().toFixed(2)}
+              </Title>
+              
+              <Space>
+                <Button 
+                  type="primary" 
+                  size="large"
+                  icon={<DollarOutlined />}
+                  disabled={cart.length === 0}
+                  onClick={() => setIsPaymentModalVisible(true)}
+                >
+                  معالجة الدفع
+                </Button>
+                
+                <Button 
+                  size="large"
+                  icon={<PrinterOutlined />}
+                  disabled={cart.length === 0}
+                >
+                  طباعة الفاتورة
+                </Button>
+              </Space>
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* نافذة الدفع */}
@@ -396,20 +545,34 @@ const Sales: React.FC = () => {
         onCancel={() => setIsPaymentModalVisible(false)}
         footer={null}
         width={400}
-        confirmLoading={processingSale}
       >
         <Form
           form={paymentForm}
           layout="vertical"
           onFinish={handlePayment}
           initialValues={{
-            amountPaid: calculateTotal()
+            amountPaid: calculateFinalTotal()
           }}
         >
-          <Form.Item label="المبلغ المستحق" style={{ marginBottom: 8 }}>
+          {selectedCustomer && (
+            <Form.Item label="العميل">
+              <Alert
+                message={selectedCustomer.name}
+                description={`نقاط الولاء: ${selectedCustomer.loyaltyPoints}`}
+                type="info"
+              />
+            </Form.Item>
+          )}
+
+          <Form.Item label="المبلغ المستحق">
             <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
-              ${calculateTotal().toFixed(2)}
+              ${calculateFinalTotal().toFixed(2)}
             </Title>
+            {calculateDiscount() > 0 && (
+              <div style={{ color: '#52c41a', fontSize: '14px' }}>
+                شامل خصم ${calculateDiscount().toFixed(2)}
+              </div>
+            )}
           </Form.Item>
 
           <Form.Item
@@ -432,7 +595,7 @@ const Sales: React.FC = () => {
           >
             <InputNumber 
               style={{ width: '100%' }}
-              min={calculateTotal()}
+              min={calculateFinalTotal()}
               formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
             />
@@ -448,6 +611,63 @@ const Sales: React.FC = () => {
             >
               {processingSale ? 'جاري المعالجة...' : 'تأكيد العملية'}
             </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* نافذة إضافة عميل */}
+      <Modal
+        title="إضافة عميل جديد"
+        open={isCustomerModalVisible}
+        onCancel={() => {
+          setIsCustomerModalVisible(false);
+          customerForm.resetFields();
+        }}
+        footer={null}
+        width={500}
+      >
+        <Form
+          form={customerForm}
+          layout="vertical"
+          onFinish={handleAddCustomer}
+        >
+          <Form.Item
+            name="name"
+            label="اسم العميل"
+            rules={[{ required: true, message: 'يرجى إدخال اسم العميل' }]}
+          >
+            <Input placeholder="اسم العميل" />
+          </Form.Item>
+
+          <Form.Item
+            name="phone"
+            label="رقم الهاتف"
+          >
+            <Input placeholder="05XXXXXXXX" />
+          </Form.Item>
+
+          <Form.Item
+            name="email"
+            label="البريد الإلكتروني"
+            rules={[{ type: 'email', message: 'يرجى إدخال بريد إلكتروني صحيح' }]}
+          >
+            <Input placeholder="example@email.com" />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'left' }}>
+            <Space>
+              <Button 
+                onClick={() => {
+                  setIsCustomerModalVisible(false);
+                  customerForm.resetFields();
+                }}
+              >
+                إلغاء
+              </Button>
+              <Button type="primary" htmlType="submit">
+                إضافة العميل
+              </Button>
+            </Space>
           </Form.Item>
         </Form>
       </Modal>

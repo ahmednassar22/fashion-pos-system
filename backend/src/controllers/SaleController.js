@@ -1,4 +1,4 @@
-const { Product, ProductVariant, sequelize, Op } = require('../models');
+const { Product, ProductVariant, Customer, sequelize, Op } = require('../models');
 
 const SaleController = {
   // معالجة عملية بيع جديدة
@@ -9,6 +9,7 @@ const SaleController = {
       const { items, paymentMethod, amountPaid, customerId } = req.body;
       
       console.log('Processing sale with items:', items);
+      console.log('Customer ID:', customerId);
 
       // التحقق من توفر المخزون
       for (const item of items) {
@@ -45,22 +46,37 @@ const SaleController = {
       const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const change = amountPaid - totalAmount;
 
-      const saleData = {
-        totalAmount,
-        paymentMethod,
-        amountPaid,
-        change: change > 0 ? change : 0,
-        items: items.length
-      };
+      // تحديث بيانات العميل إذا كان موجوداً
+      if (customerId) {
+        const customer = await Customer.findByPk(customerId, { transaction });
+        if (customer) {
+          // تحديث إجمالي المشتريات وآخر تاريخ شراء
+          const newTotalSpent = parseFloat(customer.totalSpent) + totalAmount;
+          
+          await customer.update({
+            totalSpent: newTotalSpent,
+            lastPurchaseDate: new Date()
+          }, { transaction });
+          
+          console.log(`Updated customer ${customerId} data: total spent = ${newTotalSpent}`);
+        }
+      }
 
       await transaction.commit();
       
-      console.log('Sale processed successfully:', saleData);
+      console.log('Sale processed successfully');
 
       res.json({
         success: true,
         message: 'تمت عملية البيع بنجاح',
-        sale: saleData,
+        sale: {
+          totalAmount,
+          paymentMethod,
+          amountPaid,
+          change: change > 0 ? change : 0,
+          items: items.length,
+          customerId: customerId || null
+        },
         receiptNumber: `REC-${Date.now()}`
       });
 
